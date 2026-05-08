@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
     const today = new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "long", year: "numeric" });
 
     const msg = await client.messages.create({
-      model: "claude-opus-4-5-20251001",
+model: "claude-haiku-4-5-20251001",
       max_tokens: 3000,
       system: `Extract data from a supplier quote or invoice. Return ONLY a valid JSON object — no markdown fences, no explanation. Use this exact structure:
 {
