@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OI Doc Generator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #0A1628; --teal: #00B4D8; --accent: #0077B6;
+    --mid: #8CA0B5; --text: #1a2a3a; --border: #e2e8f0;
+    --ok: #16a34a; --err: #dc2626; --warn: #d97706;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  header { background: var(--navy); padding: 0 32px; height: 56px; display: flex; align-items: center; gap: 14px; }
+  .logo { width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent), var(--teal)); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; flex-shrink: 0; }
+  .header-title { font-size: 14px; font-weight: 600; color: white; }
+  .header-sub { font-size: 11px; color: var(--mid); }
+
+  main { flex: 1; max-width: 800px; width: 100%; margin: 0 auto; padding: 28px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  .card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab { padding: 8px 18px; font-size: 13px; font-weight: 500; color: var(--mid); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .drop-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 28px 20px; text-align: center; cursor: pointer; transition: all .15s; position: relative; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--teal); background: #f0fdff; }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .drop-file { display: none; margin-top: 10px; padding: 7px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 7px; font-size: 12px; color: var(--ok); font-weight: 500; }
+
+  textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 11px 13px; font-family: inherit; font-size: 13px; color: var(--text); background: #fafafa; resize: vertical; outline: none; transition: border-color .15s; line-height: 1.6; }
+  textarea:focus { border-color: var(--teal); background: white; }
+  textarea::placeholder { color: #aab; }
+
+  .overrides { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 14px; }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--mid); }
+  .field input { border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 12px; font-family: inherit; color: var(--text); background: #fafafa; outline: none; }
+  .field input:focus { border-color: var(--teal); background: white; }
+
+  .gen-btn { width: 100%; padding: 14px; background: var(--navy); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 9px; transition: background .15s; }
+  .gen-btn:hover { background: #0d2040; }
+  .gen-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  .progress { display: none; flex-direction: column; gap: 7px; }
+  .progress.show { display: flex; }
+  .prog-step { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); transition: all .2s; }
+  .prog-step.active { border-color: #bae6fd; background: #f0f9ff; }
+  .prog-step.done   { border-color: #bbf7d0; background: #f0fdf4; }
+  .prog-step.fail   { border-color: #fecaca; background: #fef2f2; }
+  .prog-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+  .prog-label { font-size: 13px; font-weight: 500; }
+  .prog-sub { font-size: 11px; color: var(--mid); margin-top: 1px; }
+
+  /* Line item editor */
+  .items-editor { display: none; }
+  .items-editor.show { display: block; }
+  .items-editor-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .items-editor-sub { font-size: 12px; color: var(--mid); margin-bottom: 14px; line-height: 1.5; }
+  .item-row { display: grid; grid-template-columns: 1fr 140px 120px 32px; gap: 7px; align-items: start; margin-bottom: 8px; }
+  .item-row input { border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; font-size: 12px; font-family: inherit; color: var(--text); background: white; outline: none; width: 100%; }
+  .item-row input:focus { border-color: var(--teal); }
+  .item-row input.amount { text-align: right; }
+  .item-header { display: grid; grid-template-columns: 1fr 140px 120px 32px; gap: 7px; margin-bottom: 4px; }
+  .item-header span { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--mid); }
+  .del-btn { width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 6px; background: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; color: var(--err); flex-shrink: 0; margin-top: 2px; }
+  .del-btn:hover { background: #fef2f2; }
+  .add-btn { font-size: 12px; color: var(--accent); background: none; border: 1px dashed var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; margin-top: 4px; width: 100%; }
+  .add-btn:hover { border-color: var(--accent); background: #f0f9ff; }
+  .totals-row { display: flex; justify-content: flex-end; gap: 16px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 13px; }
+  .total-label { color: var(--mid); }
+  .total-val { font-weight: 600; min-width: 100px; text-align: right; }
+  .total-val.big { color: var(--accent); font-size: 14px; }
+  .build-btn { width: 100%; padding: 12px; background: var(--ok); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .build-btn:hover { opacity: .9; }
+
+  .downloads { display: none; gap: 12px; }
+  .downloads.show { display: grid; grid-template-columns: 1fr 1fr; }
+  .dl-card { border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: white; display: flex; flex-direction: column; gap: 9px; }
+  .dl-card-title { font-size: 13px; font-weight: 600; }
+  .dl-card-sub { font-size: 11px; color: var(--mid); }
+  .dl-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; text-decoration: none; border: none; }
+  .dl-btn.po  { background: var(--navy); color: white; }
+  .dl-btn.inv { background: var(--ok); color: white; }
+
+  .error-box { display: none; padding: 11px 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; font-size: 12px; color: var(--err); line-height: 1.5; }
+  .error-box.show { display: block; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .65s linear infinite; display: none; }
+  .spinner.show { display: block; }
+
+  footer { text-align: center; padding: 16px; font-size: 11px; color: var(--mid); border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">OI</div>
+  <div>
+    <div class="header-title">Document Generator</div>
+    <div class="header-sub">Quote → Purchase Order + Invoice</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Input card -->
+  <div class="card" id="inputCard">
+    <div class="card-title">Quote or invoice source</div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('upload')">📎 Upload PDF</div>
+      <div class="tab" onclick="switchTab('paste')">📋 Paste text</div>
+    </div>
+
+    <div class="tab-panel active" id="panel-upload">
+      <div class="drop-zone" id="dropZone"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="event.preventDefault();this.classList.remove('drag-over');handleDrop(event)">
+        <input type="file" id="fileInput" accept=".pdf,.txt" onchange="handleFileInput(this)">
+        <div style="font-size:28px;margin-bottom:8px">📄</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:3px">Drop your PDF here</div>
+        <div style="font-size:11px;color:var(--mid)">or click to browse</div>
+      </div>
+      <div class="drop-file" id="dropFile"></div>
+    </div>
+
+    <div class="tab-panel" id="panel-paste">
+      <textarea id="quoteText" rows="10" placeholder="Paste the full text of your quote here — must include the pricing section with line items and amounts.
+
+Tip: include lines like:
+Pre-Engagement and Design: $2,640.00
+One-Day Hybrid Workshop: $8,085.00
+Subtotal: $17,655.00 | GST: $1,765.50 | Total: $19,420.50
+Bank: BSB 034093 Account 252236"></textarea>
+    </div>
+
+    <details style="margin-top:14px">
+      <summary style="font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;user-select:none;list-style:none;outline:none">▸ Optional overrides</summary>
+      <div class="overrides">
+        <div class="field"><label>PO Number</label><input id="fPo" placeholder="e.g. 03-2026"></div>
+        <div class="field"><label>Invoice Number</label><input id="fInv" placeholder="auto-generated"></div>
+        <div class="field"><label>PO Date</label><input id="fPoD" type="date"></div>
+        <div class="field"><label>Invoice Date</label><input id="fInvD" type="date"></div>
+        <div class="field"><label>Buyer</label><input id="fBuyer" placeholder="from document"></div>
+        <div class="field"><label>Supplier</label><input id="fSupp" placeholder="from document"></div>
+      </div>
+    </details>
+  </div>
+
+  <button class="gen-btn" id="genBtn" onclick="generate()">
+    <div class="spinner" id="spinner"></div>
+    <span id="genLabel">⚡ Generate Documents</span>
+  </button>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="progress" id="progress">
+    <div class="prog-step" id="p1"><span class="prog-icon">🧠</span><div><div class="prog-label">Reading with Claude AI</div><div class="prog-sub">Extracting parties, line items, amounts, bank details</div></div></div>
+    <div class="prog-step" id="p2"><span class="prog-icon">📋</span><div><div class="prog-label">Building Purchase Order</div><div class="prog-sub">Formatted Word document</div></div></div>
+    <div class="prog-step" id="p3"><span class="prog-icon">🧾</span><div><div class="prog-label">Building Tax Invoice</div><div class="prog-label-sub">Matching invoice</div></div></div>
+  </div>
+
+  <!-- Line item editor — shown when amounts are zero -->
+  <div class="card items-editor" id="itemsEditor">
+    <div class="items-editor-title">⚠ Amounts not found — enter them below</div>
+    <div class="items-editor-sub">The AI read the document but couldn't extract dollar amounts (the pricing table may be an image in the PDF). Fill in the amounts below then click Build Documents.</div>
+
+    <div class="item-header">
+      <span>Description</span><span>Effort / Days</span><span>Amount (excl. GST)</span><span></span>
+    </div>
+    <div id="itemRows"></div>
+    <button class="add-btn" onclick="addItemRow()">+ Add line item</button>
+
+    <div style="margin-top:14px">
+      <div class="overrides" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="field"><label>Subtotal (excl. GST)</label><input id="eSubtotal" type="number" step="0.01" placeholder="0.00" oninput="recalcTotals()"></div>
+        <div class="field"><label>GST</label><input id="eGst" type="number" step="0.01" placeholder="0.00" oninput="recalcTotals()"></div>
+        <div class="field"><label>Total (incl. GST)</label><input id="eTotal" type="number" step="0.01" placeholder="0.00"></div>
+      </div>
+    </div>
+
+    <button class="build-btn" onclick="buildFromEditor()">
+      <div class="spinner" id="buildSpinner"></div>
+      <span id="buildLabel">📄 Build Documents</span>
+    </button>
+  </div>
+
+  <div class="downloads" id="downloads">
+    <div class="dl-card">
+      <div style="font-size:24px">📋</div>
+      <div><div class="dl-card-title">Purchase Order</div><div class="dl-card-sub">Buyer issues to supplier</div></div>
+      <a class="dl-btn po" id="dlPo" download="purchase_order.docx">⬇ Download PO</a>
+    </div>
+    <div class="dl-card">
+      <div style="font-size:24px">🧾</div>
+      <div><div class="dl-card-title">Tax Invoice</div><div class="dl-card-sub">Supplier invoice for payment</div></div>
+      <a class="dl-btn inv" id="dlInv" download="invoice.docx">⬇ Download Invoice</a>
+    </div>
+  </div>
+
+</main>
+
+<footer>Ocean Infinity Document System · Powered by Claude AI</footer>
+
+<script>
+const today = new Date().toISOString().slice(0, 10);
+document.getElementById('fPoD').value = today;
+document.getElementById('fInvD').value = today;
+
+let uploadedFile = null;
+let activeTab = 'upload';
+let parsedData = null;
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['upload','paste'][i] === tab));
+  document.getElementById('panel-upload').classList.toggle('active', tab === 'upload');
+  document.getElementById('panel-paste').classList.toggle('active', tab === 'paste');
+}
+
+function handleDrop(e) { if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); }
+function handleFileInput(i) { if (i.files[0]) setFile(i.files[0]); }
+function setFile(f) {
+  uploadedFile = f;
+  const el = document.getElementById('dropFile');
+  el.textContent = '✓ ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)';
+  el.style.display = 'block';
+}
+
+function setStep(n, state) {
+  const el = document.getElementById('p' + n);
+  el.className = 'prog-step ' + state;
+  const icons = { active:['🧠','📋','🧾'][n-1], done:'✅', fail:'❌' };
+  el.querySelector('.prog-icon').textContent = icons[state] || icons.active;
+}
+
+function showError(msg) { const e = document.getElementById('errorBox'); e.textContent = '⚠ ' + msg; e.classList.add('show'); }
+function hideError() { document.getElementById('errorBox').classList.remove('show'); }
+
+function b64ToBlob(b64, mime) {
+  const bin = atob(b64), buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return new Blob([buf], { type: mime });
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ── Item editor ────────────────────────────────────────────────────────────
+function populateEditor(items) {
+  const container = document.getElementById('itemRows');
+  container.innerHTML = '';
+  (items && items.length ? items : [{ desc:'', effort:'', amount:0 }]).forEach((item, i) => {
+    addItemRow(item.desc, item.effort, item.amount || '');
+  });
+}
+
+function addItemRow(desc='', effort='', amount='') {
+  const container = document.getElementById('itemRows');
+  const row = document.createElement('div');
+  row.className = 'item-row';
+  row.innerHTML = `
+    <input type="text" placeholder="Description" value="${esc(desc)}" oninput="recalcFromItems()">
+    <input type="text" placeholder="Days / effort" value="${esc(effort)}">
+    <input type="number" class="amount" placeholder="0.00" step="0.01" value="${amount||''}" oninput="recalcFromItems()">
+    <button class="del-btn" onclick="this.parentElement.remove();recalcFromItems()">×</button>`;
+  container.appendChild(row);
+}
+
+function recalcFromItems() {
+  let sub = 0;
+  document.querySelectorAll('#itemRows .amount').forEach(i => sub += parseFloat(i.value)||0);
+  sub = Math.round(sub * 100) / 100;
+  const gst = Math.round(sub * 0.1 * 100) / 100;
+  const total = Math.round((sub + gst) * 100) / 100;
+  document.getElementById('eSubtotal').value = sub || '';
+  document.getElementById('eGst').value = gst || '';
+  document.getElementById('eTotal').value = total || '';
+}
+
+function recalcTotals() {
+  const sub = parseFloat(document.getElementById('eSubtotal').value)||0;
+  const gst = Math.round(sub * 0.1 * 100) / 100;
+  document.getElementById('eGst').value = gst || '';
+  document.getElementById('eTotal').value = Math.round((sub + gst)*100)/100 || '';
+}
+
+function esc(s) { return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Main generate ──────────────────────────────────────────────────────────
+async function generate() {
+  hideError();
+  document.getElementById('itemsEditor').classList.remove('show');
+  document.getElementById('downloads').classList.remove('show');
+
+  const overrides = {
+    poNum: document.getElementById('fPo').value,
+    invNum: document.getElementById('fInv').value,
+    poDate: document.getElementById('fPoD').value,
+    invDate: document.getElementById('fInvD').value,
+    buyer: document.getElementById('fBuyer').value,
+    supplier: document.getElementById('fSupp').value,
+  };
+
+  let body;
+  if (activeTab === 'upload') {
+    if (!uploadedFile) { showError('Please select a file.'); return; }
+    const b64 = await fileToBase64(uploadedFile);
+    body = { fileBase64: b64, fileType: uploadedFile.type, overrides };
+  } else {
+    const text = document.getElementById('quoteText').value.trim();
+    if (!text) { showError('Please paste some text.'); return; }
+    body = { text, overrides };
+  }
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  document.getElementById('spinner').classList.add('show');
+  document.getElementById('genLabel').textContent = 'Reading document…';
+  document.getElementById('progress').classList.add('show');
+
+  try {
+    setStep(1, 'active');
+    const parseRes = await fetch('/api/parse', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const parseJson = await parseRes.json();
+    if (!parseRes.ok || !parseJson.ok) throw new Error(parseJson.error || 'Parse failed');
+    setStep(1, 'done');
+
+    parsedData = parseJson.data;
+
+    // Check if amounts are all zero
+    const items = parsedData.po?.items || [];
+    const allZero = items.length > 0 && items.every(i => !i.amount || i.amount === 0);
+
+    if (allZero) {
+      // Show editor for manual amount entry
+      populateEditor(items);
+      document.getElementById('itemsEditor').classList.add('show');
+      document.getElementById('genLabel').textContent = '⚡ Generate Documents';
+      btn.disabled = false;
+      document.getElementById('spinner').classList.remove('show');
+      return;
+    }
+
+    await generateDocs(parsedData);
+
+  } catch (err) {
+    showError(err.message);
+    [1,2,3].forEach(n => { if (document.getElementById('p'+n).classList.contains('active')) setStep(n,'fail'); });
+    document.getElementById('genLabel').textContent = '⚡ Generate Documents';
+  } finally {
+    btn.disabled = false;
+    document.getElementById('spinner').classList.remove('show');
+  }
+}
+
+// ── Build from editor ──────────────────────────────────────────────────────
+async function buildFromEditor() {
+  if (!parsedData) return;
+
+  // Read items from editor
+  const rows = document.querySelectorAll('#itemRows .item-row');
+  const items = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const desc = inputs[0].value.trim();
+    const effort = inputs[1].value.trim();
+    const amount = parseFloat(inputs[2].value) || 0;
+    if (desc || amount) items.push({ desc, effort, amount });
+  });
+
+  const subtotal = parseFloat(document.getElementById('eSubtotal').value) || 0;
+  const gst      = parseFloat(document.getElementById('eGst').value) || 0;
+  const total    = parseFloat(document.getElementById('eTotal').value) || 0;
+
+  // Patch the parsed data with editor values
+  parsedData.po.items    = items;
+  parsedData.po.subtotal = subtotal;
+  parsedData.po.gst      = gst;
+  parsedData.po.total    = total;
+  parsedData.inv.items    = items;
+  parsedData.inv.subtotal = subtotal;
+  parsedData.inv.gst      = gst;
+  parsedData.inv.total    = total;
+
+  document.getElementById('buildSpinner').classList.add('show');
+  document.getElementById('buildLabel').textContent = 'Building…';
+  document.querySelector('.build-btn').disabled = true;
+
+  try {
+    await generateDocs(parsedData);
+    document.getElementById('itemsEditor').classList.remove('show');
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    document.getElementById('buildSpinner').classList.remove('show');
+    document.getElementById('buildLabel').textContent = '📄 Build Documents';
+    document.querySelector('.build-btn').disabled = false;
+  }
+}
+
+// ── Generate docx files ────────────────────────────────────────────────────
+async function generateDocs(data) {
+  setStep(2, 'active');
+  setStep(3, 'active');
+
+  const genRes = await fetch('/api/generate', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data })
+  });
+  const genJson = await genRes.json();
+  if (!genRes.ok || !genJson.ok) throw new Error(genJson.error || 'Generation failed');
+
+  const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (genJson.files.po_docx) {
+    document.getElementById('dlPo').href = URL.createObjectURL(b64ToBlob(genJson.files.po_docx, mime));
+    setStep(2, 'done');
+  }
+  if (genJson.files.inv_docx) {
+    document.getElementById('dlInv').href = URL.createObjectURL(b64ToBlob(genJson.files.inv_docx, mime));
+    setStep(3, 'done');
+  }
+
+  document.getElementById('downloads').classList.add('show');
+  document.getElementById('genLabel').textContent = '✓ Done';
+  document.getElementById('genBtn').style.background = '#16a34a';
+}
+</script>
+</body>
+</html>
