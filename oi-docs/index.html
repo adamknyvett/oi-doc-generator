@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OI Purchase Order Generator</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1B2A4A;--teal:#00B4D8;--mid:#8CA0B5;--text:#1a2a3a;--border:#e2e8f0;--ok:#16a34a;--err:#dc2626;--gray:#F4F7FA}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+header{background:var(--navy);padding:0 28px;height:56px;display:flex;align-items:center;gap:14px;flex-shrink:0}
+.logo-wrap img{height:32px;width:auto}
+.hd{margin-left:12px;border-left:1px solid rgba(255,255,255,.2);padding-left:14px}
+.hd-title{font-size:14px;font-weight:600;color:white}
+.hd-sub{font-size:11px;color:var(--mid)}
+
+main{flex:1;max-width:860px;width:100%;margin:0 auto;padding:24px 20px;display:flex;flex-direction:column;gap:14px}
+
+.card{background:white;border:1px solid var(--border);border-radius:12px;padding:20px}
+.card-title{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:#e0f2fe;color:#0369a1}
+
+/* Steps indicator */
+.steps-bar{display:flex;align-items:center;gap:0;margin-bottom:4px}
+.step-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mid)}
+.step-item.active{color:var(--navy);font-weight:600}
+.step-item.done{color:var(--ok)}
+.step-num{width:22px;height:22px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.step-item.done .step-num{background:var(--ok);border-color:var(--ok);color:white}
+.step-item.active .step-num{background:var(--navy);border-color:var(--navy);color:white}
+.step-line{flex:1;height:1px;background:var(--border);margin:0 8px}
+
+/* API bar */
+.apibar{background:#fff8e1;border:1px solid #ffd54f;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.apibar-label{font-size:11px;font-weight:700;color:#7c5a00;white-space:nowrap}
+.apibar input{flex:1;min-width:200px;border:1px solid #ffd54f;border-radius:6px;padding:6px 10px;font-size:12px;font-family:inherit;background:white;outline:none;color:var(--text)}
+.apibar input:focus{border-color:var(--teal)}
+.apibar-hint{font-size:10px;color:#9a7000;width:100%;margin-top:2px}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:14px}
+.tab{padding:7px 16px;font-size:12px;font-weight:500;color:var(--mid);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.tab.active{color:var(--navy);border-bottom-color:var(--navy)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* Drop */
+.drop-zone{border:2px dashed var(--border);border-radius:8px;padding:24px 16px;text-align:center;cursor:pointer;transition:all .15s;position:relative}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--teal);background:#f0fdff}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-file{display:none;margin-top:8px;padding:6px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:12px;color:var(--ok);font-weight:500}
+
+textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--text);background:#fafafa;resize:vertical;outline:none;transition:border-color .15s;line-height:1.6}
+textarea:focus{border-color:var(--teal);background:white}
+textarea::placeholder{color:#aab}
+
+/* Fields */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mid)}
+input[type=text],input[type=date],input[type=number],input[type=password]{border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;color:var(--text);background:white;outline:none;width:100%;transition:border-color .15s}
+input:focus{border-color:var(--teal)}
+input::placeholder{color:#aab}
+input.highlight{background:#fffbeb;border-color:#fbbf24}
+
+/* Buttons */
+.btn-primary{width:100%;padding:13px;background:var(--navy);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s}
+.btn-primary:hover{background:#0d1e38}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-green{width:100%;padding:13px;background:var(--ok);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s}
+.btn-green:hover{opacity:.9}
+.btn-green:disabled{opacity:.4;cursor:not-allowed}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:white;cursor:pointer;color:var(--text);font-family:inherit;transition:all .15s}
+.btn-sm:hover{border-color:var(--teal);color:var(--teal)}
+
+/* Review section */
+.review{display:none}
+.review.show{display:block}
+
+/* Line items editor */
+.item-hdr{display:grid;grid-template-columns:1fr 180px 130px 32px;gap:6px;margin-bottom:5px;padding:0 2px}
+.item-hdr span{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mid)}
+.item-row{display:grid;grid-template-columns:1fr 180px 130px 32px;gap:6px;margin-bottom:6px;align-items:start}
+.item-row input{width:100%}
+.item-row input.amt{text-align:right}
+.del-btn{width:30px;height:34px;border:1px solid var(--border);border-radius:6px;background:white;cursor:pointer;color:var(--err);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.del-btn:hover{background:#fef2f2}
+.add-item-btn{font-size:12px;color:#0077B6;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px 14px;cursor:pointer;width:100%;margin-top:2px;font-family:inherit}
+.add-item-btn:hover{border-color:#0077B6;background:#f0f9ff}
+
+.totals-row{display:flex;justify-content:flex-end;gap:0;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.total-block{text-align:right;padding:0 20px}
+.total-block label{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mid);margin-bottom:4px}
+.total-block input{text-align:right;background:#f8fafc;width:130px}
+.total-block.big input{font-weight:700;font-size:14px;color:var(--navy);background:#e0f2fe;border-color:#0077B6}
+
+/* Downloads */
+.dl-card{border:1px solid #bbf7d0;border-radius:10px;padding:18px;background:#f0fdf4;display:flex;align-items:center;gap:16px}
+.dl-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;background:var(--navy);color:white;white-space:nowrap;transition:opacity .15s}
+.dl-btn:hover{opacity:.85}
+
+.error-box{display:none;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:var(--err);line-height:1.5}
+.error-box.show{display:block}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .65s linear infinite;display:none;flex-shrink:0}
+.spinner.show{display:block}
+
+footer{text-align:center;padding:12px;font-size:10px;color:var(--mid);border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<!-- Password gate -->
+<div id="gate" style="position:fixed;inset:0;background:#0A1628;display:flex;align-items:center;justify-content:center;z-index:9999">
+  <div style="background:white;border-radius:16px;padding:40px 36px;width:100%;max-width:380px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    <img src="/oi_logo.png" alt="Ocean Infinity" style="height:44px;margin-bottom:20px" onerror="this.style.display='none'">
+    <div style="font-size:18px;font-weight:700;color:#1B2A4A;margin-bottom:6px">Internal Tool</div>
+    <div style="font-size:13px;color:#8CA0B5;margin-bottom:24px">Enter your access password to continue</div>
+    <input type="password" id="gateInput" placeholder="Password" autocomplete="off"
+      style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:11px 14px;font-size:14px;font-family:inherit;outline:none;text-align:center;margin-bottom:10px"
+      onkeydown="if(event.key==='Enter')checkPass()"
+      onfocus="this.style.borderColor='#00B4D8'"
+      onblur="this.style.borderColor='#e2e8f0'">
+    <div id="gateErr" style="font-size:12px;color:#dc2626;margin-bottom:10px;display:none">Incorrect password — try again</div>
+    <button onclick="checkPass()"
+      style="width:100%;padding:12px;background:#1B2A4A;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+      Enter
+    </button>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Check if already authenticated this session
+  if(sessionStorage.getItem('oi_auth')==='1'){
+    document.getElementById('gate').style.display='none';
+  }
+})();
+function checkPass(){
+  const val=document.getElementById('gateInput').value;
+  if(val==='OI999'){
+    sessionStorage.setItem('oi_auth','1');
+    document.getElementById('gate').style.display='none';
+  } else {
+    document.getElementById('gateErr').style.display='block';
+    document.getElementById('gateInput').value='';
+    document.getElementById('gateInput').focus();
+  }
+}
+</script>
+
+<header>
+  <div class="logo-wrap">
+    <img src="/oi_logo.png" alt="Ocean Infinity" onerror="this.style.display='none'">
+  </div>
+  <div class="hd">
+    <div class="hd-title">Purchase Order Generator</div>
+    <div class="hd-sub">COM-FOR-003 · Powered by Claude AI</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Step indicator -->
+  <div class="steps-bar">
+    <div class="step-item active" id="si1"><div class="step-num">1</div><span>Upload quote</span></div>
+    <div class="step-line"></div>
+    <div class="step-item" id="si2"><div class="step-num">2</div><span>Review &amp; confirm amounts</span></div>
+    <div class="step-line"></div>
+    <div class="step-item" id="si3"><div class="step-num">3</div><span>Download PO</span></div>
+  </div>
+
+  <!-- API Key (optional, collapsed by default) -->
+  <details id="apiDetails" style="background:#fafafa;border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+    <summary style="font-size:11px;color:var(--mid);cursor:pointer;user-select:none;list-style:none;outline:none">🔑 API Key <span style="font-weight:400">(optional — only needed if server has no key configured)</span></summary>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;font-family:inherit;background:white;outline:none;color:var(--text)">
+    </div>
+    <div style="font-size:10px;color:var(--mid);margin-top:6px">Get your key at console.anthropic.com/settings/keys</div>
+  </details>
+
+  <!-- STEP 1: Input -->
+  <div class="card" id="step1card">
+    <div class="card-title">
+      <span>Step 1 — Upload or paste your quote</span>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('upload')">📎 Upload PDF</div>
+      <div class="tab" onclick="switchTab('paste')">📋 Paste text</div>
+    </div>
+    <div class="tab-panel active" id="panel-upload">
+      <div class="drop-zone" id="dropZone"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="event.preventDefault();this.classList.remove('drag-over');handleDrop(event)">
+        <input type="file" id="fileInput" accept=".pdf,.txt,.png,.jpg,.jpeg,.webp" onchange="handleFileInput(this)">
+        <div style="font-size:26px;margin-bottom:6px">📄</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:2px">Drop PDF quote here</div>
+        <div style="font-size:11px;color:var(--mid)">PDF, image (PNG/JPG), or TXT</div>
+      </div>
+      <div class="drop-file" id="dropFile"></div>
+    </div>
+    <div class="tab-panel" id="panel-paste">
+      <textarea id="quoteText" rows="9" placeholder="Paste your full quote text here including line items and amounts..."></textarea>
+    </div>
+
+    <div style="margin-top:14px">
+      <button class="btn-primary" id="extractBtnPO" onclick="extract('po')">
+        <div class="spinner" id="extractSpinPO"></div>
+        <span id="extractLabelPO">⚡ Generate Purchase Order</span>
+      </button>
+    </div>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <!-- STEP 2: Review -->
+  <div class="review" id="step2card">
+    <div class="card">
+      <div class="card-title">
+        Step 2 — Review &amp; confirm details
+        <span class="badge">Edit anything before generating</span>
+      </div>
+
+      <div style="font-size:12px;color:var(--mid);background:var(--gray);padding:10px 12px;border-radius:8px;margin-bottom:16px;line-height:1.6">
+        ✏️ Check all fields below. <strong>Amounts highlighted in yellow</strong> could not be automatically extracted — enter them now. Everything else can also be edited.
+      </div>
+
+      <!-- PO details -->
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="field"><label>PO Number</label><input type="text" id="rPoNum"></div>
+        <div class="field"><label>Date of Order</label><input type="text" id="rDate"></div>
+        <div class="field"><label>Ordered By</label><input type="text" id="rOrderedBy"></div>
+        <div class="field"><label>Date Delivery Required</label><input type="text" id="rDelivery"></div>
+      </div>
+
+      <!-- Supplier -->
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mid);margin-bottom:8px;margin-top:4px">Supplier</div>
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="field"><label>Company Name</label><input type="text" id="rSuppName"></div>
+        <div class="field"><label>Address</label><input type="text" id="rSuppAddr"></div>
+        <div class="field"><label>Contact Name</label><input type="text" id="rSuppContact"></div>
+        <div class="field"><label>Contact Email</label><input type="text" id="rSuppEmail"></div>
+        <div class="field"><label>ABN</label><input type="text" id="rSuppAbn"></div>
+        <div class="field"><label>Supplier Quote Ref</label><input type="text" id="rSuppRef"></div>
+      </div>
+
+      <!-- Bank -->
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mid);margin-bottom:8px">Bank / Payment</div>
+      <div class="grid2" style="margin-bottom:16px">
+        <div class="field"><label>Account Name</label><input type="text" id="rBankName"></div>
+        <div class="field"><label>BSB</label><input type="text" id="rBankBsb"></div>
+        <div class="field"><label>Account Number</label><input type="text" id="rBankAcct"></div>
+        <div class="field"><label>Bank Branch</label><input type="text" id="rBankBranch"></div>
+      </div>
+
+      <!-- Line items -->
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mid);margin-bottom:8px">Line Items</div>
+      <div class="item-hdr">
+        <span>Description &amp; bullet points</span>
+        <span>Effort / Days</span>
+        <span>Amount (excl. GST)</span>
+        <span></span>
+      </div>
+      <div id="itemRows"></div>
+      <button class="add-item-btn" onclick="addRow()">+ Add line item</button>
+
+      <!-- Totals -->
+      <div class="totals-row">
+        <div class="total-block">
+          <label>Subtotal (excl. GST)</label>
+          <input type="number" id="rSub" step="0.01" placeholder="0.00" oninput="recalcGst()">
+        </div>
+        <div class="total-block">
+          <label id="gstLabel">GST (10%)</label>
+          <input type="number" id="rGst" step="0.01" placeholder="0.00" readonly style="background:#f8fafc">
+        </div>
+        <div class="total-block big">
+          <label>Total (incl. GST)</label>
+          <input type="number" id="rTotal" step="0.01" placeholder="0.00" readonly>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="field" style="margin-top:14px">
+        <label>Special Requirements / Notes</label>
+        <textarea id="rNotes" rows="2"></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn-sm" onclick="backToStep1()">← Back</button>
+        <button class="btn-green" id="buildBtn" onclick="buildDoc()" style="flex:1">
+          <div class="spinner" id="buildSpin"></div>
+          <span id="buildLabel">📋 Generate Purchase Order</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Download -->
+  <div id="step3card" style="display:none">
+    <div class="dl-card">
+      <div style="font-size:32px">📋</div>
+      <div style="flex:1">
+        <div id="dlPoTitle" style="font-size:14px;font-weight:600;color:var(--navy)">Purchase Order — COM-FOR-003</div>
+        <div id="dlPoSub" style="font-size:11px;color:var(--mid);margin-top:2px">Ocean Infinity format · open in Word · ready to sign</div>
+      </div>
+      <a class="dl-btn" id="dlPo" download="OI_Purchase_Order.docx">⬇ Download</a>
+    </div>
+    <div style="margin-top:10px;text-align:center">
+      <button class="btn-sm" onclick="startOver()">Generate another PO</button>
+    </div>
+  </div>
+
+</main>
+
+<footer>Ocean Infinity (Australia) Pty Ltd · COM-FOR-003 · Rev 1 · This document is UNCONTROLLED when printed</footer>
+
+<script>
+let uploadedFile=null, activeTab='upload', parsedData=null;
+
+// Step indicators
+function setStep(n){
+  [1,2,3].forEach(i=>{
+    const el=document.getElementById('si'+i);
+    el.className='step-item'+(i<n?' done':i===n?' active':'');
+  });
+}
+
+function switchTab(t){
+  activeTab=t;
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['upload','paste'][i]===t));
+  document.getElementById('panel-upload').classList.toggle('active',t==='upload');
+  document.getElementById('panel-paste').classList.toggle('active',t==='paste');
+}
+
+function handleDrop(e){if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0])}
+function handleFileInput(i){if(i.files[0])setFile(i.files[0])}
+function setFile(f){
+  uploadedFile=f;
+  const el=document.getElementById('dropFile');
+  el.textContent='✓ '+f.name+' ('+(f.size/1024).toFixed(1)+' KB)';
+  el.style.display='block';
+}
+
+function showError(m){const e=document.getElementById('errorBox');e.textContent='⚠ '+m;e.classList.add('show')}
+function hideError(){document.getElementById('errorBox').classList.remove('show')}
+
+function fileToBase64(f){
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f)});
+}
+function b64ToBlob(b64,mime){
+  try {
+    // Strip any whitespace or data URI prefix
+    const clean = b64.replace(/\s/g,'').replace(/^data:[^;]+;base64,/,'');
+    const bin=atob(clean),buf=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+    return new Blob([buf],{type:mime});
+  } catch(e) {
+    throw new Error('Could not decode document file. Please try again.');
+  }
+}
+
+// ── EXTRACT ────────────────────────────────────────────────────────────────
+async function extract(docType='po'){
+  hideError();
+  const apiKey=document.getElementById('apiKey').value.trim();
+  let body;
+  if(activeTab==='upload'){
+    if(!uploadedFile){showError('Please select a file.');return}
+    const b64=await fileToBase64(uploadedFile);
+    body={fileBase64:b64,fileType:uploadedFile.type,overrides:{apiKey}};
+  } else {
+    const text=document.getElementById('quoteText').value.trim();
+    if(!text){showError('Please paste some text.');return}
+    body={text,overrides:{apiKey}};
+  }
+  const btnId = 'extractBtnPO';
+  const spinId = 'extractSpinPO';
+  const lblId  = 'extractLabelPO';
+  const btn=document.getElementById(btnId);
+  btn.disabled=true;
+  document.getElementById(spinId).classList.add('show');
+  document.getElementById(lblId).textContent='Reading with Claude AI…';
+  try {
+    const res=await fetch('/api/parse',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await res.json();
+    if(!res.ok||!j.ok) throw new Error(j.error||'Failed to read quote');
+    parsedData=j.data;
+    populateReview(parsedData, j.needsAmounts||false);
+    document.getElementById('step1card').style.display='none';
+    document.getElementById('step2card').classList.add('show');
+    setStep(2);
+  } catch(e){
+    showError(e.message);
+  } finally {
+    btn.disabled=false;
+    document.getElementById(spinId).classList.remove('show');
+    document.getElementById(lblId).textContent = '⚡ Generate Purchase Order';
+  }
+}
+
+// ── POPULATE REVIEW ────────────────────────────────────────────────────────
+function populateReview(data, needsAmounts){
+  const isInv = false;
+  const po = isInv ? (data.inv||{}) : (data.po||{});
+  // Update step 2 title
+  document.querySelector('#step2card .card-title').innerHTML = 'Step 2 — Review &amp; confirm details <span class="badge">Edit anything before generating</span>';
+  // Update build button
+  const bl=document.getElementById('buildLabel'); if(bl) bl.textContent = '📋 Generate Purchase Order';
+  // PO fields
+  v('rPoNum', po.number||'');
+  v('rDate', po.date||new Date().toLocaleDateString('en-AU'));
+  v('rOrderedBy', po.buyer_contact||'Ian Coffey');
+  v('rDelivery', ''); // Leave blank — user should enter manually
+  // Supplier
+  v('rSuppName', po.supplier_name||'');
+  v('rSuppAddr', po.supplier_addr||'');
+  v('rSuppContact', po.supplier_contact||'');
+  v('rSuppEmail', po.supplier_email||'');
+  v('rSuppAbn', po.supplier_abn||'');
+  v('rSuppRef', po.reference||po.ref||'');
+  // Bank
+  v('rBankName', po.bank_name||'');
+  v('rBankBsb', po.bank_bsb||'');
+  v('rBankAcct', po.bank_acct||'');
+  v('rBankBranch', po.bank_branch||'');
+  // Detect NZ vs AU for GST rate
+  const suppAddr = (po.supplier_addr||'').toLowerCase();
+  const buyerAddr = (po.buyer_addr||'').toLowerCase();
+  const isNZ = suppAddr.includes('new zealand') || suppAddr.includes(' nz') ||
+               buyerAddr.includes('new zealand') || buyerAddr.includes(' nz') ||
+               (po.supplier_abn||'').includes('NZ') ||
+               (po.notes||'').toLowerCase().includes('new zealand') ||
+               (po.description||'').toLowerCase().includes('new zealand');
+  gstRate = isNZ ? 0.15 : 0.10;
+  document.getElementById('gstLabel').textContent = 'GST ('+(gstRate*100|0)+'%)';
+
+  // Invoice fields removed
+  // Notes
+  v('rNotes', po.notes||'');
+  // Line items
+  document.getElementById('itemRows').innerHTML='';
+  const items=po.items||[];
+  if(items.length===0){
+    addRow('','',0,[]);
+  } else {
+    items.forEach(it=>addRow(it.desc||'',it.effort||'',it.amount||0,it.bullet_points||[]));
+  }
+  // Totals
+  const sub=parseFloat(po.subtotal)||0;
+  const gst=parseFloat(po.gst)||0;
+  const tot=parseFloat(po.total)||0;
+  document.getElementById('rSub').value=sub||'';
+  document.getElementById('rGst').value=gst||'';
+  document.getElementById('rTotal').value=tot||'';
+
+  // Highlight amount fields yellow if zero
+  if(needsAmounts||sub===0){
+    document.getElementById('rSub').classList.add('highlight');
+    document.querySelectorAll('#itemRows .amt').forEach(i=>i.classList.add('highlight'));
+  }
+}
+
+function v(id,val){
+  const el=document.getElementById(id);
+  if(el) el.value=val;
+}
+
+// ── ITEM ROWS ──────────────────────────────────────────────────────────────
+function addRow(desc='',effort='',amount='',bullets=[]){
+  const c=document.getElementById('itemRows');
+  const wrap=document.createElement('div');
+  wrap.style.cssText='margin-bottom:10px;background:var(--gray);border-radius:8px;padding:10px';
+  const amtVal=amount&&parseFloat(amount)>0?parseFloat(amount).toFixed(2):'';
+  const bulletsText=Array.isArray(bullets)?bullets.join('\n'):'';
+  wrap.innerHTML=`
+    <div class="item-row" style="margin-bottom:6px">
+      <input type="text" placeholder="Description" value="${esc(desc)}" oninput="recalcFromRows()" data-field="desc">
+      <input type="text" placeholder="e.g. 2 days" value="${esc(effort)}" data-field="effort">
+      <input type="number" class="amt ${amtVal?'':'highlight'}" placeholder="0.00" step="0.01" value="${amtVal}" oninput="recalcFromRows()" data-field="amount">
+      <button class="del-btn" onclick="this.closest('[data-item]').remove();recalcFromRows()">×</button>
+    </div>
+    <textarea placeholder="• Sub-points / bullet points (one per line, optional)" data-field="bullets"
+      style="width:100%;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:white;font-family:inherit;resize:vertical;min-height:44px;color:var(--mid)"
+      rows="2">${esc(bulletsText)}</textarea>`;
+  wrap.setAttribute('data-item','');
+  c.appendChild(wrap);
+}
+
+function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+
+function recalcFromRows(){
+  let sub=0;
+  document.querySelectorAll('#itemRows [data-field="amount"]').forEach(i=>sub+=parseFloat(i.value)||0);
+  sub=Math.round(sub*100)/100;
+  document.getElementById('rSub').value=sub||'';
+  document.getElementById('rSub').classList.remove('highlight');
+  recalcGst();
+}
+
+let gstRate = 0.10; // default AU, updated when NZ detected
+
+function recalcGst(){
+  const sub=parseFloat(document.getElementById('rSub').value)||0;
+  const gst=Math.round(sub*gstRate*100)/100;
+  const tot=Math.round((sub+gst)*100)/100;
+  document.getElementById('rGst').value=gst||'';
+  document.getElementById('rTotal').value=tot||'';
+  // Update label to show rate
+  document.getElementById('gstLabel').textContent='GST ('+(gstRate*100|0)+'%)';
+}
+
+// ── BUILD DOC ──────────────────────────────────────────────────────────────
+async function buildDoc(){
+  // Collect all values from review form
+  const items=[];
+  document.querySelectorAll('#itemRows [data-item]').forEach(wrap=>{
+    const desc   = (wrap.querySelector('[data-field="desc"]')?.value||'').trim();
+    const effort = (wrap.querySelector('[data-field="effort"]')?.value||'').trim();
+    const amount = parseFloat(wrap.querySelector('[data-field="amount"]')?.value)||0;
+    const bullTxt= (wrap.querySelector('[data-field="bullets"]')?.value||'').trim();
+    const bullet_points = bullTxt ? bullTxt.split('\n').map(l=>l.replace(/^[•\-\*]\s*/,'')).filter(l=>l) : [];
+    if(desc||amount) items.push({desc,effort,amount,bullet_points});
+  });
+
+  const isInvBuild = false;
+  const po={
+    number:   document.getElementById('rPoNum').value,
+    reference: document.getElementById('rRef')?.value||'',
+    date:     document.getElementById('rDate').value,
+    delivery: document.getElementById('rDelivery').value,
+    ref:      document.getElementById('rSuppRef').value,
+    buyer_contact: document.getElementById('rOrderedBy').value,
+    buyer_name: 'Ocean Infinity (Australia) Pty Ltd',
+    buyer_addr: '2/237 Kennedy Drive, Cambridge TAS 7170',
+    supplier_name:    document.getElementById('rSuppName').value,
+    supplier_addr:    document.getElementById('rSuppAddr').value,
+    supplier_abn:     document.getElementById('rSuppAbn').value,
+    supplier_contact: document.getElementById('rSuppContact').value,
+    supplier_email:   document.getElementById('rSuppEmail').value,
+    bank_name:   document.getElementById('rBankName').value,
+    bank_bsb:    document.getElementById('rBankBsb').value,
+    bank_acct:   document.getElementById('rBankAcct').value,
+    bank_branch: document.getElementById('rBankBranch').value,
+    items,
+    subtotal: parseFloat(document.getElementById('rSub').value)||0,
+    gst:      parseFloat(document.getElementById('rGst').value)||0,
+    total:    parseFloat(document.getElementById('rTotal').value)||0,
+    notes:    document.getElementById('rNotes').value,
+  };
+
+  const btn=document.getElementById('buildBtn');
+  btn.disabled=true;
+  document.getElementById('buildSpin').classList.add('show');
+  document.getElementById('buildLabel').textContent='Building…';
+
+  try {
+  const isInv = false;
+    const payload = isInv
+      ? { data:{ inv: { ...po, supplier_name:po.supplier_name, supplier_addr:po.supplier_addr, supplier_abn:po.supplier_abn, supplier_acn:po.supplier_acn, supplier_contact:po.supplier_contact, supplier_email:po.supplier_email, supplier_phone:po.supplier_phone, bank_name:po.bank_name, bank_bsb:po.bank_bsb, bank_acct:po.bank_acct, bank_branch:po.bank_branch, signed_by:po.signed_by||'Duane Vickery', buyer_name:po.buyer_name||'Ocean Infinity (Australia) Pty Ltd', buyer_addr:po.buyer_addr||'2/237 Kennedy Drive, Cambridge TAS 7170', buyer_contact:po.buyer_contact, number:po.number, date:po.date, reference:po.reference||po.notes, po_ref:po.po_ref||po.number, items, subtotal:parseFloat(document.getElementById('rSub').value)||0, gst:parseFloat(document.getElementById('rGst').value)||0, total:parseFloat(document.getElementById('rTotal').value)||0 } }, docType:'invoice' }
+      : { data:{po}, docType:'po' };
+    const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const respText=await res.text();
+    let j;
+    try{j=JSON.parse(respText);}catch(e){throw new Error('Server error: '+respText.slice(0,200));}
+    if(!res.ok||!j.ok) throw new Error(j.error||'Build failed');
+    const mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const b64=j.files?.po_docx||j.files?.inv_docx;
+    if(!b64) throw new Error('No document returned');
+    const isInvDoc=false;
+    const dlEl=document.getElementById('dlPo');
+    dlEl.href=URL.createObjectURL(b64ToBlob(b64,mime));
+    dlEl.download=isInvDoc?'Tax_Invoice.docx':'OI_Purchase_Order.docx';
+    document.getElementById('dlPoTitle').textContent='Purchase Order — COM-FOR-003';
+    document.getElementById('dlPoSub').textContent='Ocean Infinity format · open in Word · ready to sign';
+    document.getElementById('step2card').classList.remove('show');
+    document.getElementById('step3card').style.display='block';
+    setStep(3);
+  } catch(e){
+    alert('Error: '+e.message);
+  } finally {
+    btn.disabled=false;
+    document.getElementById('buildSpin').classList.remove('show');
+    document.getElementById('buildLabel').textContent='📋 Generate Purchase Order';
+  }
+}
+
+function backToStep1(){
+  document.getElementById('step2card').classList.remove('show');
+  document.getElementById('step1card').style.display='block';
+  setStep(1);
+}
+
+function startOver(){
+  document.getElementById('step3card').style.display='none';
+  document.getElementById('step1card').style.display='block';
+  document.getElementById('dropFile').style.display='none';
+  document.getElementById('quoteText').value='';
+  uploadedFile=null;
+  setStep(1);
+}
+</script>
+</body>
+</html>
